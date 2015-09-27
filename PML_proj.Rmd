@@ -68,8 +68,9 @@ pml.training6 <- cbind(pml.training5, classe)
 ncol(pml.training6)
 ```
 In the end 54 variables are left including the classe which is the outcome to be predicted.
-####Creation of training and testing datasets
-The data is sliced into two datasets
+
+### Creation of training and testing datasets and error
+In order to reduce the chance to obtain a biased prediction by overfitting using all the avaliable data. The information should be The data is sliced into two datasets, one for training the prediction method and in another set to provide for testing. This strategy would prove beneficial as then the accuracy, sensitivity, specificity and an approximation to the out-of-sample error could be obtained.
 ```{r slice, echo=TRUE}
 thetrain <- createDataPartition(y = pml.training6$classe, p=0.7, list = FALSE)
 training <- pml.training6[thetrain,]
@@ -101,13 +102,16 @@ After running the model it seems that it may have a good accuracy to predict, ho
 confM <- confusionMatrix(testing$classe, predict(model, testing))
 print(confM)
 ```
-A good accuracy was obtained, **98.6%**, which is also suported with good sensitivity and specificty. Nevertheless the **Out-of-sample error** is calculated by substracting *1 - Acurracy*
+A good accuracy was obtained, **98.6%**, which is also suported with good sensitivity and specificty. 
+
+### Out-of-sample error
+Like in any preiction model there's always a source of error, moreover, there is alwasy the risk that overfitting my lead to an easying with the error, ie. relaxing and thus this can be overconfident. The repeated cross-validation strategy coupled to the Adaboost try to tackle this feature, as the averaging generalization of the error applied to independent samples should behave closer to the true error. As sliced datasets were used, using a sub-training dataset and a slice test one can infer how the eorro would be withe the "real test" dataset" that has the 20 subjects. Thus teh an approximation the out of sample error, would be given by substracting *1 - Acurracy*
 ```{r acc, echo=TRUE}
 #Out of sample error
 outerror <- as.vector(1 - confM$overall[1])
 outerror
 ```
-Also a *low error* which furthers reinforces the idea of an acceptable prediction model.
+As this would be the proportion of the cases which the prediction would be mistaken. In this case this lower value may argue in favor of an acceptable prediction model.
 
 Finally, the model is tested with the real test of the 20 subjects. For this the same subsetting of variables is done, ie. the number and name are removed, as well as the time-stamp and factor variables.
 ```{r testing_clean, echo=FALSE,results="hide"}
