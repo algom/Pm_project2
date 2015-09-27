@@ -4,7 +4,7 @@ In this repository the R markdown file, as well as the html file of the predicit
 
 The gh-page branch is located at:
 
-<http://algom.github.io/Pm_project/PML_proj.html>
+<http://algom.github.io/Pm_project2/PML_proj.html>
 
 ### Introduction
 
