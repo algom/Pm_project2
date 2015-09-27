@@ -1,0 +1,138 @@
+---
+title: "PML Activity Prediction"
+author: "Ag"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+### Introduction
+
+Devices such as Jawbone and Nike FuelBand, allow to collect data about position in space and time, thus allowing to quantify physical activity and the spatial space where it is conducted. using data from <http://groupware.les.inf.puc-rio.br/har>, which collected information of accelerometers on the belt, forearm, arm, and dumbell of 6 participants a prediction model was generated in order to classify how barbell lifts were performed correctly and incorrectly in 5 different ways. 
+
+The data is composed of two datasets one part for creating and testing the model, and another one with 20 test subjects in which the model should be tested.
+
+First of all the data is downloaded to the working directroy
+
+####Training
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+
+####20 subject test
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+
+Once the data is downloaded the data are read in R
+
+```{r Reading, echo=TRUE}
+#Load the databases
+#Training
+pml.training <- read.csv("pml-training.csv")
+#Testing
+pml.testing <- read.csv("pml-testing.csv")
+```
+
+In order to perform the model the caret package among others are required, thus the libraries are called:
+```{r libraries, echo=TRUE, results="hide"}
+#Libraries
+require(caret)
+require(gbm)
+require(ggplot2)
+require(reshape2)
+```
+Following this the variables included in the dataset are explored as well as the dataset dimensions:
+```{r variables, echo=TRUE, results="hide"}
+names(pml.training)
+```
+```{r dimensions, echo=TRUE}
+nrow(pml.training);ncol(pml.training)
+nrow(pml.testing);ncol(pml.testing)
+```
+
+Thus there are information of 19622 subjects in the testing sets with 160 variables measured, whereas in the 20 subject test data, there are 20 subjects and the same number of variables. With this one realizes that there are some variables which can be subseted from the analysis as may not contribute, as the first column and name:
+```{r subset1, echo=TRUE}
+#Subset first two columns as one is the number and the second is the name of the user
+pml.training2 <- pml.training[-c(1:2)]
+```
+Then a summary of the variables is done
+```{r summary, echo=TRUE, results="hide"}
+summary(pml.training2)
+```
+Some columns could also be subset. First there are variables which contain mainly NAs which may not be approapiate to include in a prediction, as well as the timestamp columns as these should not give information for the outcome needed. Finally the factor columns are also not taken into account as these have levels which may not give info and could perturb the prediction
+```{r nas, echo=TRUE}
+pml.training3 <- pml.training2[,!colSums(is.na(pml.training2))]
+pml.training4 <- pml.training3[,-c(grep("timestamp", colnames(pml.training3)))]
+pml.training5 <- pml.training4[, !sapply(pml.training4, is.factor)]
+#Bind the outcome
+classe <- pml.training4$classe
+pml.training6 <- cbind(pml.training5, classe)
+ncol(pml.training6)
+```
+In the end 54 variables are left including the classe which is the outcome to be predicted.
+####Creation of training and testing datasets
+The data is sliced into two datasets
+```{r slice, echo=TRUE}
+thetrain <- createDataPartition(y = pml.training6$classe, p=0.7, list = FALSE)
+training <- pml.training6[thetrain,]
+testing <- pml.training6[-thetrain,]
+```
+Before starting the model the variables of the sliced training dataset are explored to see if there are clear association between variables
+``` {r graph, echo=TRUE, error=FALSE}
+ggplot(melt(cor(training[-54])), aes(Var1, Var2)) + geom_tile(aes(fill = value)) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=8, , colour="black"), axis.title.x=element_blank(), axis.title.y=element_blank(), axis.text.y = element_text(size=8, colour="black")) + 
+  scale_fill_gradient2(limits=c(-1, 1), low="#2166ac", high="#b2182b", name = "Correlation")
+````
+
+**Figure 1.** Correlation matrix of the variables to be used as inpit for prediction of *classe* outcome.
+
+##Modeling
+The correlation matrix demonstrated that a few variables highly correlate, however the other variables may bring extra infromation which could make the model more robust, so a model including all variables was planned. Once the dataset is sliced the model is done using the Adaboost algorithm is used using the gbm: Generalized Boosted Regression Models package, which gives a good speed acuracy compromise, using all variables. Morover, to control for biased error a cross-validation strategy is setup with 3 folds and 3 repeats. Once this is setup the model is run.
+```{r model, echo=TRUE}
+#Cross-validation
+controles <- trainControl(method = "repeatedcv", number = 3, repeats = 3)
+#Set seed
+set.seed(12345)
+#All the variables are used, the control is used, and the verbose is left to false for the high output
+model  <- train(classe ~ ., method = "gbm", trControl = controles, verbose = FALSE, data = training)
+#We see the results of the modeling
+model
+```
+After running the model it seems that it may have a good accuracy to predict, however this has to be formally tested using the sliced testing dataset. For this and to see how it performed, a confusion matrix is done with the testing dataset
+```{r confusion, echo=TRUE}
+confM <- confusionMatrix(testing$classe, predict(model, testing))
+print(confM)
+```
+A good accuracy was obtained, **98.6%**, which is also suported with good sensitivity and specificty. Nevertheless the **Out-of-sample error** is calculated by substracting *1 - Acurracy*
+```{r acc, echo=TRUE}
+#Out of sample error
+outerror <- as.vector(1 - confM$overall[1])
+outerror
+```
+Also a *low error* which furthers reinforces the idea of an acceptable prediction model.
+
+Finally, the model is tested with the real test of the 20 subjects. For this the same subsetting of variables is done, ie. the number and name are removed, as well as the time-stamp and factor variables.
+```{r testing_clean, echo=FALSE,results="hide"}
+#Subset first two columns as one is the number and the second is the name of the user
+pml.testing2 <- pml.testing[-c(1:2)]
+#Do a summary of the variables
+summary(pml.testing2)
+#Some columns are only NAs which may not be approapiate to include in a prediction, subset those
+pml.testing3 <- pml.testing2[,!colSums(is.na(pml.testing2))]
+#Remove the timestamp columns as should not have such an effect
+pml.testing4 <- pml.testing3[,-c(grep("timestamp", colnames(pml.testing3)))]
+#Remove the factor columns as this have levels which may not give info and could perturb the prediction #DIV/0, , but keep the outcome
+names(pml.testing4)
+pml.testing5 <- pml.testing4[, !sapply(pml.testing4, is.factor)]
+names(pml.testing5)
+#Lastly the problem ID column is removed
+pml.testing6 <- pml.testing5[-54]
+```
+And then the prediction is made with the model, and assigned to a vector
+```{r model2, echo=TRUE}
+predi <- predict(model, pml.testing6)
+```
+```{r predi2, echo=FALSE}
+#Forced as vector to have them as character
+predi2 <- as.vector(predi)
+```
+
+The task requires to have a txt file for each prediction, the provided script in the Coursera page was used for that purpose.
