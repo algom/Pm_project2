@@ -83,7 +83,7 @@ ggplot(melt(cor(training[-54])), aes(Var1, Var2)) + geom_tile(aes(fill = value))
   scale_fill_gradient2(limits=c(-1, 1), low="#2166ac", high="#b2182b", name = "Correlation")
 ````
 
-**Figure 1.** Correlation matrix of the variables to be used as inpit for prediction of *classe* outcome.
+**Figure 1.** Correlation matrix of the variables to be used as input for prediction of *classe* outcome.
 
 ##Modeling
 The correlation matrix demonstrated that a few variables highly correlate, however the other variables may bring extra infromation which could make the model more robust, so a model including all variables was planned. Once the dataset is sliced the model is done using the Adaboost algorithm is used using the gbm: Generalized Boosted Regression Models package, which gives a good speed acuracy compromise, using all variables. Morover, to control for biased error a cross-validation strategy is setup with 3 folds and 3 repeats. Once this is setup the model is run.
